@@ -10,7 +10,7 @@ class ExpenseController extends ChangeNotifier {
 
   List<Expense> _expenses = [];
   ExpenseSummary _summary = const ExpenseSummary.empty();
-  DateFilterPreset _datePreset = DateFilterPreset.thisMonth;
+  DateFilterPreset _datePreset = DateFilterPreset.all;
   DateTime _selectedMonth = DateTime(DateTime.now().year, DateTime.now().month);
   DateTime? _customFrom;
   DateTime? _customTo;

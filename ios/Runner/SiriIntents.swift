@@ -148,9 +148,15 @@ struct AddExpenseIntent: AppIntent {
     df.dateFormat = "yyyy-MM-dd"
     let dateStr = df.string(from: expenseDate ?? Date())
 
+    var cleanCat = category
+      .replacingOccurrences(of: "category", with: "", options: .caseInsensitive)
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+    if cleanCat.isEmpty { cleanCat = "Other" }
+    cleanCat = cleanCat.prefix(1).uppercased() + cleanCat.dropFirst()
+
     let body: [String: Any] = [
       "expenseDate": dateStr,
-      "category": category.trimmingCharacters(in: .whitespacesAndNewlines),
+      "category": cleanCat,
       "amount": amount,
       "note": "Added via Siri",
     ]
@@ -164,7 +170,7 @@ struct AddExpenseIntent: AppIntent {
     }
 
     if status == 201 {
-      return .result(dialog: "Added ₹\(String(format: "%.2f", amount)) in \(category) for \(dateStr).")
+      return .result(dialog: "Added ₹\(String(format: "%.2f", amount)) in \(cleanCat) for \(dateStr).")
     }
     let err = (json["error"] as? String) ?? "Failed to add expense."
     return .result(dialog: IntentDialog(stringLiteral: err))

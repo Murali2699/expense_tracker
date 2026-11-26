@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import '../core/biometric_service.dart';
 import '../core/secure_storage.dart';
-import '../models/expense.dart';
 import '../providers/expense_controller.dart';
 import '../theme/app_theme.dart';
 import '../widgets/adaptive_bottom_nav.dart';
@@ -108,72 +106,8 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _pickMonth() async {
-    int year = _controller.selectedMonth.year;
-    final years = List.generate(11, (i) => 2020 + i);
-
-    final picked = await showModalBottomSheet<DateTime>(
-      context: context,
-      backgroundColor: AppTheme.card,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setModalState) => SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Select Year & Month',
-                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-                    ),
-                    DropdownButton<int>(
-                      value: years.contains(year) ? year : years.last,
-                      dropdownColor: AppTheme.surface,
-                      items: years
-                          .map((y) => DropdownMenuItem(value: y, child: Text('$y')))
-                          .toList(),
-                      onChanged: (y) {
-                        if (y != null) setModalState(() => year = y);
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: List.generate(12, (i) {
-                    final m = DateTime(year, i + 1, 1);
-                    return ActionChip(
-                      label: Text(DateFormat('MMM').format(m)),
-                      backgroundColor: AppTheme.surface,
-                      side: const BorderSide(color: AppTheme.border),
-                      onPressed: () => Navigator.pop(ctx, m),
-                    );
-                  }),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-
-    if (picked != null) {
-      await _controller.setDatePreset(
-        DateFilterPreset.selectedMonth,
-        month: picked,
-      );
-    }
-  }
-
   Future<void> _pickDateRange() async {
+    FocusManager.instance.primaryFocus?.unfocus();
     final now = DateTime.now();
     final picked = await showDateRangePicker(
       context: context,
@@ -235,6 +169,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   backgroundColor: AppTheme.card,
                   foregroundColor: AppTheme.accent,
                   onPressed: () async {
+                    FocusManager.instance.primaryFocus?.unfocus();
                     await showModalBottomSheet<void>(
                       context: context,
                       isScrollControlled: true,
@@ -245,6 +180,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       builder: (_) => BulkUploadSheet(controller: _controller),
                     );
+                    if (mounted) FocusManager.instance.primaryFocus?.unfocus();
                   },
                   icon: const Icon(Icons.auto_awesome_rounded),
                   label: const Text(
@@ -274,7 +210,10 @@ class _HomeScreenState extends State<HomeScreen> {
           : null,
       bottomNavigationBar: AdaptiveBottomNav(
         selectedIndex: _navIndex,
-        onSelected: (i) => setState(() => _navIndex = i),
+        onSelected: (i) {
+          FocusManager.instance.primaryFocus?.unfocus();
+          setState(() => _navIndex = i);
+        },
         items: const [
           NavItemData(label: 'Expenses', icon: Icons.receipt_long_rounded),
           NavItemData(label: 'Auto', icon: Icons.auto_awesome_rounded),
@@ -314,13 +253,13 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 16),
               FilterBar(
                 datePreset: _controller.datePreset,
-                selectedMonth: _controller.selectedMonth,
+                customFrom: _controller.customFrom,
+                customTo: _controller.customTo,
                 selectedCategory: _controller.selectedCategory,
                 extraCategories: _controller.summary.byCategory
                     .map((e) => e.category)
                     .toList(),
                 onPresetSelected: (p) => _controller.setDatePreset(p),
-                onPickMonth: _pickMonth,
                 onPickDateRange: _pickDateRange,
                 onCategorySelected: _controller.setCategoryFilter,
               ),

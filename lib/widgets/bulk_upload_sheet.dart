@@ -27,6 +27,7 @@ class _BulkUploadSheetState extends State<BulkUploadSheet> {
   }
 
   Future<void> _processAndSave() async {
+    FocusManager.instance.primaryFocus?.unfocus();
     final raw = _textCtrl.text.trim();
     if (raw.isEmpty) {
       setState(() => _error = 'Paste or type your expense lines first.');
@@ -185,7 +186,10 @@ class _BulkUploadSheetState extends State<BulkUploadSheet> {
                 ),
                 const SizedBox(height: 16),
                 FilledButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () {
+                    FocusManager.instance.primaryFocus?.unfocus();
+                    Navigator.pop(context);
+                  },
                   style: FilledButton.styleFrom(
                     backgroundColor: AppTheme.accent,
                     foregroundColor: const Color(0xFF032318),
