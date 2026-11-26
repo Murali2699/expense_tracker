@@ -30,6 +30,7 @@ class FilterBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final allCategories = <String>{
       ...kDefaultCategories.map((c) => c.name),
+      'Bank/UPI',
       ...extraCategories.where((c) => c.trim().isNotEmpty),
     }.toList();
 

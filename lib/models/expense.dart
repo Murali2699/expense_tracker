@@ -115,6 +115,13 @@ const List<CategoryMeta> kDefaultCategories = [
 
 CategoryMeta categoryMetaFor(String name) {
   final lower = name.trim().toLowerCase();
+  if (lower == 'bank/upi' || lower == 'auto') {
+    return const CategoryMeta(
+      'Bank/UPI',
+      Icons.account_balance_wallet_rounded,
+      Color(0xFF10B981),
+    );
+  }
   for (final cat in kDefaultCategories) {
     if (cat.name.toLowerCase() == lower) return cat;
   }

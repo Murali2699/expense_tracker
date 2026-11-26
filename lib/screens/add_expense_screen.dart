@@ -53,7 +53,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         _selectedCategory = kDefaultCategories
             .firstWhere((c) => c.name.toLowerCase() == ex.category.toLowerCase())
             .name;
-      } else if (ex.category.toLowerCase() != 'uncategorized') {
+      } else if (ex.category.toLowerCase() != 'uncategorized' &&
+          ex.category.toLowerCase() != 'bank/upi' &&
+          ex.category.toLowerCase() != 'auto') {
         _selectedCategory = 'Other';
         _customCategoryCtrl.text = ex.category;
       }
