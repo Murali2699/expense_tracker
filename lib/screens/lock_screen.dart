@@ -17,13 +17,35 @@ class LockScreen extends StatefulWidget {
   State<LockScreen> createState() => _LockScreenState();
 }
 
-class _LockScreenState extends State<LockScreen> {
+class _LockScreenState extends State<LockScreen> with WidgetsBindingObserver {
   bool _authenticating = false;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _authenticate());
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _triggerIfResumed());
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _triggerIfResumed();
+    }
+  }
+
+  Future<void> _triggerIfResumed() async {
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    if (!mounted || _authenticating) return;
+    if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+      _authenticate();
+    }
   }
 
   Future<void> _authenticate() async {
