@@ -39,12 +39,10 @@ class _LentScreenState extends State<LentScreen> {
       _error = null;
     });
     try {
-      final results = await Future.wait([
-        ApiClient.instance.fetchLent(status: 'PENDING'),
-        ApiClient.instance.fetchUpiInfo(),
-      ]);
-      final res = results[0] as ({double totalAmount, List<LentGroup> groups});
-      final upiInfo = results[1] as ({String upiId, bool hasQr, String phoneNumber});
+      final lentFuture = ApiClient.instance.fetchLent(status: 'PENDING');
+      final upiFuture = ApiClient.instance.fetchUpiInfo();
+      final res = await lentFuture;
+      final upiInfo = await upiFuture;
       if (mounted) {
         setState(() {
           _totalPending = res.totalAmount;

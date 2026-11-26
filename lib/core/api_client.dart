@@ -345,6 +345,43 @@ class ApiClient {
     }
   }
 
+  Future<bool> fetchAutoCaptureEnabled() async {
+    try {
+      final uri = Uri.parse('$_baseUrl/api/v1/auto');
+      final resp = await _sendWithRefresh(
+        (token) => _http
+            .get(uri, headers: {'Authorization': 'Bearer $token'})
+            .timeout(_timeout),
+      );
+      if (resp.statusCode != 200) return true;
+      final data = _decodeJson(resp.body);
+      return (data['autoCaptureEnabled'] as bool?) ?? true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  Future<bool> setAutoCaptureEnabled(bool enabled) async {
+    final uri = Uri.parse('$_baseUrl/api/v1/auto/settings');
+    final resp = await _sendWithRefresh(
+      (token) => _http
+          .put(
+            uri,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({'enabled': enabled}),
+          )
+          .timeout(_timeout),
+    );
+    final data = _decodeJson(resp.body);
+    if (resp.statusCode != 200) {
+      throw ApiException(data['error'] as String? ?? 'Failed to update setting');
+    }
+    return (data['autoCaptureEnabled'] as bool?) ?? enabled;
+  }
+
   Future<bool> createAutoExpense({
     required DateTime expenseDate,
     required double amount,

@@ -21,6 +21,8 @@ class _AutoExpensesScreenState extends State<AutoExpensesScreen> {
   List<Expense> _items = [];
   bool _loading = true;
   bool _scanning = false;
+  bool _autoCaptureEnabled = true;
+  bool _toggling = false;
   String? _error;
 
   @override
@@ -35,8 +37,16 @@ class _AutoExpensesScreenState extends State<AutoExpensesScreen> {
       _error = null;
     });
     try {
-      final list = await ApiClient.instance.fetchAutoExpenses();
-      if (mounted) setState(() => _items = list);
+      final listFuture = ApiClient.instance.fetchAutoExpenses();
+      final enabledFuture = ApiClient.instance.fetchAutoCaptureEnabled();
+      final list = await listFuture;
+      final enabled = await enabledFuture;
+      if (mounted) {
+        setState(() {
+          _items = list;
+          _autoCaptureEnabled = enabled;
+        });
+      }
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
@@ -44,8 +54,43 @@ class _AutoExpensesScreenState extends State<AutoExpensesScreen> {
     }
   }
 
+  Future<void> _toggleAutoCapture(bool next) async {
+    setState(() => _toggling = true);
+    try {
+      final saved = await ApiClient.instance.setAutoCaptureEnabled(next);
+      if (mounted) {
+        setState(() => _autoCaptureEnabled = saved);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              saved
+                  ? 'Auto debit tracking enabled.'
+                  : 'Auto debit tracking disabled.',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _toggling = false);
+    }
+  }
+
   Future<void> _scanSms() async {
     if (!SmsService.instance.isSupported) return;
+    if (!_autoCaptureEnabled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Auto debit tracking is disabled. Enable it to scan SMS.'),
+        ),
+      );
+      return;
+    }
     setState(() => _scanning = true);
     final messenger = ScaffoldMessenger.of(context);
     try {
@@ -142,10 +187,52 @@ class _AutoExpensesScreenState extends State<AutoExpensesScreen> {
                       : 'iOS does not allow apps to read SMS. Auto-captured expenses synced from Android or Apple Shortcuts appear here.',
                   style: const TextStyle(color: AppTheme.textMuted, fontSize: 12.5),
                 ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppTheme.card.withValues(alpha: 0.7),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppTheme.border),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _autoCaptureEnabled
+                            ? Icons.sensors_rounded
+                            : Icons.sensors_off_rounded,
+                        size: 18,
+                        color: _autoCaptureEnabled
+                            ? AppTheme.accent
+                            : AppTheme.textMuted,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _autoCaptureEnabled
+                              ? 'Debit Tracking: Enabled'
+                              : 'Debit Tracking: Disabled',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: _autoCaptureEnabled
+                                ? AppTheme.textPrimary
+                                : AppTheme.textMuted,
+                          ),
+                        ),
+                      ),
+                      Switch(
+                        value: _autoCaptureEnabled,
+                        activeThumbColor: AppTheme.accent,
+                        onChanged: _toggling ? null : _toggleAutoCapture,
+                      ),
+                    ],
+                  ),
+                ),
                 if (isAndroid) ...[
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 12),
                   FilledButton.icon(
-                    onPressed: _scanning ? null : _scanSms,
+                    onPressed: (_scanning || !_autoCaptureEnabled) ? null : _scanSms,
                     icon: _scanning
                         ? const SizedBox(
                             width: 16,
