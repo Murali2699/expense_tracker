@@ -40,31 +40,6 @@ class _GroupShareSheetState extends State<GroupShareSheet> {
     super.dispose();
   }
 
-  String _categoryEmoji(String category) {
-    switch (category.trim().toLowerCase()) {
-      case 'food':
-        return '🍗';
-      case 'groceries':
-        return '🛒';
-      case 'transport':
-        return '🚗';
-      case 'bills':
-        return '🧾';
-      case 'shopping':
-        return '🛍️';
-      case 'health':
-        return '💊';
-      case 'entertainment':
-        return '🎬';
-      case 'bank/upi':
-      case 'auto':
-        return '🏦';
-      case 'other':
-      default:
-        return '📦';
-    }
-  }
-
   Future<void> _pickContact() async {
     try {
       final picked = await ContactPicker.pick();
@@ -137,9 +112,9 @@ class _GroupShareSheetState extends State<GroupShareSheet> {
       ];
 
       for (final u in res.byUser) {
-        lines.add('👤 *${u.username}* — Total: ${currency.format(u.totalAmount)}');
+        lines.add('*${u.username}* - Total: ${currency.format(u.totalAmount)}');
         for (final c in u.byCategory.entries) {
-          lines.add('  ${_categoryEmoji(c.key)} ${c.key}: ${currency.format(c.value)}');
+          lines.add('  • ${c.key}: ${currency.format(c.value)}');
         }
         lines.add('');
       }

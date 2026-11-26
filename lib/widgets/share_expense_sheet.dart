@@ -56,31 +56,6 @@ class _ShareExpenseSheetState extends State<ShareExpenseSheet> {
     if (picked != null) setState(() => _selectedDate = picked);
   }
 
-  String _categoryEmoji(String category) {
-    switch (category.trim().toLowerCase()) {
-      case 'food':
-        return '🍗';
-      case 'groceries':
-        return '🛒';
-      case 'transport':
-        return '🚗';
-      case 'bills':
-        return '🧾';
-      case 'shopping':
-        return '🛍️';
-      case 'health':
-        return '💊';
-      case 'entertainment':
-        return '🎬';
-      case 'bank/upi':
-      case 'auto':
-        return '🏦';
-      case 'other':
-      default:
-        return '📦';
-    }
-  }
-
   String _formatSingleDateMessage(DateTime date, List<Expense> list) {
     final currency = NumberFormat.currency(locale: 'en_IN', symbol: '₹');
     final dateStr = DateFormat('dd MMM yyyy').format(date);
@@ -93,8 +68,7 @@ class _ShareExpenseSheetState extends State<ShareExpenseSheet> {
 
     final lines = <String>['Here are my *$dateStr* expenses:', ''];
     for (final entry in byCat.entries) {
-      final emoji = _categoryEmoji(entry.key);
-      lines.add('$emoji ${entry.key}: ${currency.format(entry.value)}');
+      lines.add('• ${entry.key}: ${currency.format(entry.value)}');
     }
     lines.add('');
     lines.add('*Total Spent: ${currency.format(total)}*');
@@ -127,10 +101,9 @@ class _ShareExpenseSheetState extends State<ShareExpenseSheet> {
         catMap[e.category] = (catMap[e.category] ?? 0) + e.amount;
       }
 
-      lines.add('📅 *$label* (Total: ${currency.format(dayTotal)})');
+      lines.add('*$label* (Total: ${currency.format(dayTotal)})');
       for (final c in catMap.entries) {
-        final emoji = _categoryEmoji(c.key);
-        lines.add('  $emoji ${c.key}: ${currency.format(c.value)}');
+        lines.add('  • ${c.key}: ${currency.format(c.value)}');
       }
       lines.add('');
     }
