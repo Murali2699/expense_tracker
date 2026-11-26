@@ -12,6 +12,18 @@ import 'screens/login_screen.dart';
 import 'screens/splash_screen.dart';
 import 'theme/app_theme.dart';
 
+class _UnfocusNavigatorObserver extends NavigatorObserver {
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    FocusManager.instance.primaryFocus?.unfocus();
+  }
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    FocusManager.instance.primaryFocus?.unfocus();
+  }
+}
+
 class ExpenseTrackerApp extends StatefulWidget {
   const ExpenseTrackerApp({super.key});
 
@@ -143,23 +155,28 @@ class _ExpenseTrackerAppState extends State<ExpenseTrackerApp>
       title: 'Expense Tracker',
       debugShowCheckedModeBanner: false,
       scaffoldMessengerKey: _scaffoldMessengerKey,
+      navigatorObservers: [_UnfocusNavigatorObserver()],
       theme: AppTheme.dark,
       builder: (context, child) {
-        return Stack(
-          children: [
-            ?child,
-            // Privacy overlay when backgrounded so OS task switcher doesn't leak expenses
-            if (_inBackground)
-              Container(
-                color: AppTheme.bg,
-                alignment: Alignment.center,
-                child: const Icon(
-                  Icons.lock_rounded,
-                  size: 48,
-                  color: AppTheme.accent,
+        return GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+          child: Stack(
+            children: [
+              ?child,
+              // Privacy overlay when backgrounded so OS task switcher doesn't leak expenses
+              if (_inBackground)
+                Container(
+                  color: AppTheme.bg,
+                  alignment: Alignment.center,
+                  child: const Icon(
+                    Icons.lock_rounded,
+                    size: 48,
+                    color: AppTheme.accent,
+                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
         );
       },
       home: _buildHome(),
