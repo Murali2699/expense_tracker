@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -61,6 +62,7 @@ class _GroupShareSheetState extends State<GroupShareSheet> {
 
   Future<void> _send() async {
     FocusManager.instance.primaryFocus?.unfocus();
+    await SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
     setState(() {
       _sending = true;
       _error = null;

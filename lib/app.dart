@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'core/api_client.dart';
@@ -70,6 +71,8 @@ class _ExpenseTrackerAppState extends State<ExpenseTrackerApp>
         }
       });
     } else if (state == AppLifecycleState.resumed) {
+      FocusManager.instance.primaryFocus?.unfocus();
+      SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
       setState(() => _inBackground = false);
       if (_loggedIn) {
         SyncService.instance.flush();
