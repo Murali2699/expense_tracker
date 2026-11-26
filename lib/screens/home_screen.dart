@@ -49,6 +49,7 @@ class _HomeScreenState extends State<HomeScreen> {
   static const _titles = [
     'Expenses',
     'Auto Expense',
+    'Bulk Upload',
     'Money Given',
     'I Bought',
     'Completed',
@@ -230,62 +231,47 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       floatingActionButton: _navIndex == 0
-          ? Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                FloatingActionButton.extended(
-                  heroTag: 'bulkFab',
-                  backgroundColor: AppTheme.card,
-                  foregroundColor: AppTheme.accent,
-                  onPressed: () async {
-                    FocusManager.instance.primaryFocus?.unfocus();
-                    await showModalBottomSheet<void>(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: AppTheme.card,
-                      shape: const RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.vertical(top: Radius.circular(24)),
-                      ),
-                      builder: (_) => BulkUploadSheet(controller: _controller),
-                    );
-                    if (mounted) FocusManager.instance.primaryFocus?.unfocus();
-                  },
-                  icon: const Icon(Icons.auto_awesome_rounded),
-                  label: const Text(
-                    'Bulk',
-                    style: TextStyle(fontWeight: FontWeight.w700),
+          ? FloatingActionButton.extended(
+              heroTag: 'addFab',
+              onPressed: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        AddExpenseScreen(controller: _controller),
                   ),
-                ),
-                const SizedBox(width: 10),
-                FloatingActionButton.extended(
-                  heroTag: 'addFab',
-                  onPressed: () async {
-                    await Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            AddExpenseScreen(controller: _controller),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.add_rounded),
-                  label: const Text(
-                    'Add',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ],
+                );
+              },
+              icon: const Icon(Icons.add_rounded),
+              label: const Text(
+                'Add Expense',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
             )
           : null,
       bottomNavigationBar: AdaptiveBottomNav(
         selectedIndex: _navIndex,
-        onSelected: (i) {
+        onSelected: (i) async {
           FocusManager.instance.primaryFocus?.unfocus();
+          if (i == 2) {
+            await showModalBottomSheet<void>(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: AppTheme.card,
+              shape: const RoundedRectangleBorder(
+                borderRadius:
+                    BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              builder: (_) => BulkUploadSheet(controller: _controller),
+            );
+            if (mounted) FocusManager.instance.primaryFocus?.unfocus();
+            return;
+          }
           setState(() => _navIndex = i);
         },
         items: const [
           NavItemData(label: 'Expenses', icon: Icons.receipt_long_rounded),
           NavItemData(label: 'Auto', icon: Icons.auto_awesome_rounded),
+          NavItemData(label: 'Bulk', icon: Icons.playlist_add_rounded),
           NavItemData(label: 'I Gave', icon: Icons.call_made_rounded),
           NavItemData(label: 'I Bought', icon: Icons.call_received_rounded),
           NavItemData(label: 'Done', icon: Icons.history_rounded),
@@ -295,8 +281,8 @@ class _HomeScreenState extends State<HomeScreen> {
         child: switch (_navIndex) {
           0 => _buildExpensesTab(),
           1 => AutoExpensesScreen(controller: _controller),
-          2 => const LentScreen(),
-          3 => const BorrowedScreen(),
+          3 => const LentScreen(),
+          4 => const BorrowedScreen(),
           _ => const CompletedScreen(),
         },
       ),

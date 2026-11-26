@@ -55,7 +55,7 @@ class _AdaptiveBottomNavState extends State<AdaptiveBottomNav> {
           final active = i == widget.selectedIndex;
           return Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 2),
               child: Material(
                 color: active ? AppTheme.accentSoft : AppTheme.card,
                 borderRadius: BorderRadius.circular(12),
@@ -85,7 +85,7 @@ class _AdaptiveBottomNavState extends State<AdaptiveBottomNav> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 10,
                             fontWeight: active ? FontWeight.w700 : FontWeight.w500,
                             color: active ? AppTheme.accent : AppTheme.textMuted,
                           ),
