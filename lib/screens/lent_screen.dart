@@ -180,7 +180,11 @@ class _LentScreenState extends State<LentScreen> {
   }
 
   Future<void> _uploadQr() async {
-    final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
+    final picked = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+      maxWidth: 1024,
+    );
     if (picked == null || !mounted) return;
     setState(() => _uploadingQr = true);
     try {
