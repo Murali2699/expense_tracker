@@ -7,6 +7,7 @@ import '../providers/expense_controller.dart';
 import '../theme/app_theme.dart';
 import '../widgets/adaptive_bottom_nav.dart';
 import '../widgets/bulk_upload_sheet.dart';
+import '../widgets/calculate_expense_sheet.dart';
 import '../widgets/expense_tile.dart';
 import '../widgets/filter_bar.dart';
 import '../widgets/month_pickers.dart';
@@ -142,6 +143,25 @@ class _HomeScreenState extends State<HomeScreen> {
         toolbarHeight: 62,
         title: Text(_titles[_navIndex]),
         actions: [
+          if (_navIndex == 0)
+            _appBarAction(
+              icon: Icons.calculate_rounded,
+              label: 'Calculate',
+              color: AppTheme.accent,
+              onTap: () async {
+                FocusManager.instance.primaryFocus?.unfocus();
+                await showModalBottomSheet<void>(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: AppTheme.card,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.vertical(top: Radius.circular(24)),
+                  ),
+                  builder: (_) => const CalculateExpenseSheet(),
+                );
+              },
+            ),
           if (_navIndex == 0)
             _appBarAction(
               icon: Icons.share_rounded,
