@@ -110,16 +110,14 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _pickDateRange() async {
     FocusManager.instance.primaryFocus?.unfocus();
     final now = DateTime.now();
-    final picked = await showDateRangePicker(
+    final picked = await showDatePicker(
       context: context,
+      initialDate: _controller.customFrom ?? now,
       firstDate: DateTime(2020),
       lastDate: DateTime(now.year + 2, 12, 31),
-      initialDateRange: _controller.customFrom != null && _controller.customTo != null
-          ? DateTimeRange(start: _controller.customFrom!, end: _controller.customTo!)
-          : DateTimeRange(start: now, end: now),
     );
     if (picked != null) {
-      await _controller.setCustomDateRange(picked.start, picked.end);
+      await _controller.setCustomDateRange(picked, picked);
     }
   }
 
@@ -127,13 +125,15 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        toolbarHeight: 62,
         title: Text(_titles[_navIndex]),
         actions: [
           if (_navIndex == 0)
-            IconButton(
-              tooltip: 'Send Expense to WhatsApp',
-              icon: const Icon(Icons.share_rounded, color: AppTheme.accent),
-              onPressed: () async {
+            _appBarAction(
+              icon: Icons.share_rounded,
+              label: 'Share',
+              color: AppTheme.accent,
+              onTap: () async {
                 FocusManager.instance.primaryFocus?.unfocus();
                 await showModalBottomSheet<void>(
                   context: context,
@@ -148,19 +148,15 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
           if (widget.biometricAvailable)
-            IconButton(
-              tooltip: widget.biometricEnabled
-                  ? 'Disable ${widget.biometricLabel}'
-                  : 'Enable ${widget.biometricLabel}',
-              icon: Icon(
-                widget.biometricEnabled
-                    ? Icons.verified_user_rounded
-                    : Icons.shield_outlined,
-                color: widget.biometricEnabled
-                    ? AppTheme.accent
-                    : AppTheme.textMuted,
-              ),
-              onPressed: () async {
+            _appBarAction(
+              icon: widget.biometricEnabled
+                  ? Icons.verified_user_rounded
+                  : Icons.shield_outlined,
+              label: widget.biometricLabel,
+              color: widget.biometricEnabled
+                  ? AppTheme.accent
+                  : AppTheme.textMuted,
+              onTap: () async {
                 final target = !widget.biometricEnabled;
                 final verified = await BiometricService.instance.authenticate(
                   reason: target
@@ -172,11 +168,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 }
               },
             ),
-          IconButton(
-            tooltip: 'Sign Out',
-            icon: const Icon(Icons.logout_rounded),
-            onPressed: widget.onLogout,
+          _appBarAction(
+            icon: Icons.logout_rounded,
+            label: 'Sign Out',
+            color: AppTheme.textMuted,
+            onTap: widget.onLogout,
           ),
+          const SizedBox(width: 6),
         ],
       ),
       floatingActionButton: _navIndex == 0
@@ -249,6 +247,37 @@ class _HomeScreenState extends State<HomeScreen> {
           3 => const BorrowedScreen(),
           _ => const CompletedScreen(),
         },
+      ),
+    );
+  }
+
+  Widget _appBarAction({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(10),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

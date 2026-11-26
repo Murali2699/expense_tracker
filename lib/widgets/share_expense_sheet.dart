@@ -52,20 +52,23 @@ class _ShareExpenseSheetState extends State<ShareExpenseSheet> {
   String _formatSingleDateMessage(DateTime date, List<Expense> list) {
     final currency = NumberFormat.currency(locale: 'en_IN', symbol: '₹');
     final dateStr = DateFormat('dd MMM yyyy').format(date);
-    final byCat = <String, double>{};
+    final byCat = <String, List<Expense>>{};
     double total = 0;
     for (final e in list) {
       total += e.amount;
-      byCat[e.category] = (byCat[e.category] ?? 0) + e.amount;
+      byCat.putIfAbsent(e.category, () => []).add(e);
     }
 
-    final lines = <String>[
-      'Here are my *$dateStr* expenses:',
-      '',
-      ...byCat.entries.map((e) => '• ${e.key}: ${currency.format(e.value)}'),
-      '',
-      '*Total Spent: ${currency.format(total)}*',
-    ];
+    final lines = <String>['Here are my *$dateStr* expenses:', ''];
+    for (final entry in byCat.entries) {
+      final catTotal = entry.value.fold<double>(0, (s, e) => s + e.amount);
+      final notes = entry.value
+          .map((e) => e.note.isNotEmpty ? '${e.note} (${currency.format(e.amount)})' : currency.format(e.amount))
+          .join(', ');
+      lines.add('• ${entry.key}: ${currency.format(catTotal)} [$notes]');
+    }
+    lines.add('');
+    lines.add('*Total Spent: ${currency.format(total)}*');
     return lines.join('\n');
   }
 
