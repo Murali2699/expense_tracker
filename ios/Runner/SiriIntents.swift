@@ -239,21 +239,35 @@ struct SendReminderIntent: AppIntent {
     }
 
     let hasQr = (remJson["hasQr"] as? Bool) ?? false
+    let message = (remJson["message"] as? String) ?? ""
     if hasQr, let qrImage = await SiriApiHelper.downloadQrImage() {
       await MainActor.run {
-        UIPasteboard.general.image = qrImage
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let window = scenes.flatMap { $0.windows }.first(where: { $0.isKeyWindow }) ?? scenes.first?.windows.first
+        var vc = window?.rootViewController
+        while let presented = vc?.presentedViewController {
+          vc = presented
+        }
+        let activity = UIActivityViewController(
+          activityItems: [qrImage, message],
+          applicationActivities: nil
+        )
+        if let pop = activity.popoverPresentationController, let rootView = vc?.view {
+          pop.sourceView = rootView
+          pop.sourceRect = CGRect(x: rootView.bounds.midX, y: rootView.bounds.midY, width: 1, height: 1)
+        }
+        vc?.present(activity, animated: true)
       }
+      return .result(dialog: "Ready to send WhatsApp reminder with QR for \(personName).")
     }
 
     let targetPhone = (remJson["phoneNumber"] as? String) ?? phone
-    let message = (remJson["message"] as? String) ?? ""
     let encoded = message.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
     if let waUrl = URL(string: "https://wa.me/\(targetPhone)?text=\(encoded)") {
       await MainActor.run {
         UIApplication.shared.open(waUrl)
       }
-      let qrNote = hasQr ? " QR scanner copied to clipboard." : ""
-      return .result(dialog: "Opening WhatsApp reminder for \(personName).\(qrNote)")
+      return .result(dialog: "Opening WhatsApp reminder for \(personName).")
     }
     return .result(dialog: "Could not open WhatsApp.")
   }
