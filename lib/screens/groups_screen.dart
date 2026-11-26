@@ -18,13 +18,15 @@ class _GroupsScreenState extends State<GroupsScreen>
   late final TabController _tabCtrl;
   List<ExpenseGroup> _groups = [];
   List<GroupRequest> _requests = [];
+  List<SentGroupInvite> _sentInvites = [];
+  List<GroupActivityItem> _activity = [];
   bool _loading = true;
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 2, vsync: this);
+    _tabCtrl = TabController(length: 3, vsync: this);
     _load();
   }
 
@@ -45,6 +47,8 @@ class _GroupsScreenState extends State<GroupsScreen>
         setState(() {
           _groups = res.groups;
           _requests = res.pendingRequests;
+          _sentInvites = res.sentInvites;
+          _activity = res.groupActivity;
         });
       }
     } catch (e) {
@@ -290,6 +294,7 @@ class _GroupsScreenState extends State<GroupsScreen>
                 ],
               ),
             ),
+            const Tab(text: 'Invites'),
           ],
         ),
       ),
@@ -365,13 +370,149 @@ class _GroupsScreenState extends State<GroupsScreen>
                     RefreshIndicator(
                       color: AppTheme.accent,
                       onRefresh: _load,
-                      child: _requests.isEmpty
+                      child: (_requests.isEmpty && _activity.isEmpty)
                           ? ListView(
                               children: const [
                                 SizedBox(height: 120),
                                 Center(
                                   child: Text(
-                                    'No pending group requests.',
+                                    'No notifications yet.',
+                                    style: TextStyle(color: AppTheme.textMuted),
+                                  ),
+                                ),
+                              ],
+                            )
+                          : ListView(
+                              padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+                              children: [
+                                if (_requests.isNotEmpty) ...[
+                                  const Padding(
+                                    padding: EdgeInsets.only(bottom: 8),
+                                    child: Text(
+                                      'Requests for You',
+                                      style: TextStyle(
+                                        color: AppTheme.textMuted,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                  ..._requests.map((r) => Container(
+                                        margin: const EdgeInsets.only(bottom: 10),
+                                        padding: const EdgeInsets.all(14),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.card,
+                                          borderRadius: BorderRadius.circular(18),
+                                          border: Border.all(color: AppTheme.border),
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              r.groupName,
+                                              style: const TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              'Invited by @${r.invitedByUsername}',
+                                              style: const TextStyle(color: AppTheme.textMuted),
+                                            ),
+                                            const SizedBox(height: 12),
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: OutlinedButton(
+                                                    onPressed: () => _respond(r, 'DENY'),
+                                                    style: OutlinedButton.styleFrom(
+                                                      foregroundColor: AppTheme.danger,
+                                                      side: const BorderSide(color: AppTheme.danger),
+                                                    ),
+                                                    child: const Text('Deny'),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 10),
+                                                Expanded(
+                                                  child: FilledButton(
+                                                    onPressed: () => _respond(r, 'ACCEPT'),
+                                                    style: FilledButton.styleFrom(
+                                                      backgroundColor: AppTheme.accent,
+                                                      foregroundColor: const Color(0xFF032318),
+                                                    ),
+                                                    child: const Text('Accept'),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      )),
+                                  const SizedBox(height: 10),
+                                ],
+                                if (_activity.isNotEmpty) ...[
+                                  const Padding(
+                                    padding: EdgeInsets.only(bottom: 8),
+                                    child: Text(
+                                      'Group Activity',
+                                      style: TextStyle(
+                                        color: AppTheme.textMuted,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                  ..._activity.map((a) => Container(
+                                        margin: const EdgeInsets.only(bottom: 8),
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.card,
+                                          borderRadius: BorderRadius.circular(14),
+                                          border: Border.all(color: AppTheme.border),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    a.groupName,
+                                                    style: const TextStyle(
+                                                      fontWeight: FontWeight.w700,
+                                                      fontSize: 13,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 2),
+                                                  Text(
+                                                    '@${a.invitedByUsername} invited @${a.memberUsername}',
+                                                    style: const TextStyle(
+                                                      color: AppTheme.textMuted,
+                                                      fontSize: 12,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            _statusPill(a.status),
+                                          ],
+                                        ),
+                                      )),
+                                ],
+                              ],
+                            ),
+                    ),
+                    RefreshIndicator(
+                      color: AppTheme.accent,
+                      onRefresh: _load,
+                      child: _sentInvites.isEmpty
+                          ? ListView(
+                              children: const [
+                                SizedBox(height: 120),
+                                Center(
+                                  child: Text(
+                                    'No invites sent yet.',
                                     style: TextStyle(color: AppTheme.textMuted),
                                   ),
                                 ),
@@ -379,58 +520,43 @@ class _GroupsScreenState extends State<GroupsScreen>
                             )
                           : ListView.builder(
                               padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
-                              itemCount: _requests.length,
+                              itemCount: _sentInvites.length,
                               itemBuilder: (ctx, i) {
-                                final r = _requests[i];
+                                final s = _sentInvites[i];
                                 return Container(
                                   margin: const EdgeInsets.only(bottom: 10),
                                   padding: const EdgeInsets.all(14),
                                   decoration: BoxDecoration(
                                     color: AppTheme.card,
-                                    borderRadius: BorderRadius.circular(18),
+                                    borderRadius: BorderRadius.circular(16),
                                     border: Border.all(color: AppTheme.border),
                                   ),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                  child: Row(
                                     children: [
-                                      Text(
-                                        r.groupName,
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w700,
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              '@${s.invitedUsername}',
+                                              style: const TextStyle(
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              'Group: ${s.groupName}'
+                                              '${s.invitedPhone.isNotEmpty ? ' • ${s.invitedPhone}' : ''}',
+                                              style: const TextStyle(
+                                                color: AppTheme.textMuted,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        'Invited by @${r.invitedByUsername}',
-                                        style: const TextStyle(color: AppTheme.textMuted),
-                                      ),
-                                      const SizedBox(height: 12),
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: OutlinedButton(
-                                              onPressed: () => _respond(r, 'DENY'),
-                                              style: OutlinedButton.styleFrom(
-                                                foregroundColor: AppTheme.danger,
-                                                side: const BorderSide(color: AppTheme.danger),
-                                              ),
-                                              child: const Text('Deny'),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 10),
-                                          Expanded(
-                                            child: FilledButton(
-                                              onPressed: () => _respond(r, 'ACCEPT'),
-                                              style: FilledButton.styleFrom(
-                                                backgroundColor: AppTheme.accent,
-                                                foregroundColor: const Color(0xFF032318),
-                                              ),
-                                              child: const Text('Accept'),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
+                                      _statusPill(s.status),
                                     ],
                                   ),
                                 );
@@ -439,6 +565,33 @@ class _GroupsScreenState extends State<GroupsScreen>
                     ),
                   ],
                 ),
+    );
+  }
+
+  Widget _statusPill(String status) {
+    final upper = status.toUpperCase();
+    final Color color;
+    if (upper == 'ACCEPTED') {
+      color = AppTheme.accent;
+    } else if (upper == 'DECLINED') {
+      color = AppTheme.danger;
+    } else {
+      color = Colors.amberAccent;
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(99),
+      ),
+      child: Text(
+        upper,
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
     );
   }
 }

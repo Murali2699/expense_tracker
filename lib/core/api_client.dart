@@ -906,8 +906,12 @@ class ApiClient {
     return UserLookup.fromJson(data['user'] as Map<String, dynamic>);
   }
 
-  Future<({List<ExpenseGroup> groups, List<GroupRequest> pendingRequests})>
-      fetchGroups() async {
+  Future<({
+    List<ExpenseGroup> groups,
+    List<GroupRequest> pendingRequests,
+    List<SentGroupInvite> sentInvites,
+    List<GroupActivityItem> groupActivity,
+  })> fetchGroups() async {
     final uri = Uri.parse('$_baseUrl/api/v1/groups');
     final resp = await _sendWithRefresh(
       (token) => _http
@@ -924,7 +928,18 @@ class ApiClient {
     final requests = ((data['pendingRequests'] as List<dynamic>?) ?? const [])
         .map((e) => GroupRequest.fromJson(e as Map<String, dynamic>))
         .toList();
-    return (groups: groups, pendingRequests: requests);
+    final sentInvites = ((data['sentInvites'] as List<dynamic>?) ?? const [])
+        .map((e) => SentGroupInvite.fromJson(e as Map<String, dynamic>))
+        .toList();
+    final groupActivity = ((data['groupActivity'] as List<dynamic>?) ?? const [])
+        .map((e) => GroupActivityItem.fromJson(e as Map<String, dynamic>))
+        .toList();
+    return (
+      groups: groups,
+      pendingRequests: requests,
+      sentInvites: sentInvites,
+      groupActivity: groupActivity,
+    );
   }
 
   Future<String> createGroup({

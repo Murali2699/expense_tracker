@@ -93,6 +93,64 @@ class GroupRequest {
   }
 }
 
+class SentGroupInvite {
+  const SentGroupInvite({
+    required this.memberId,
+    required this.groupId,
+    required this.groupName,
+    required this.invitedUsername,
+    required this.invitedPhone,
+    required this.status,
+  });
+
+  final String memberId;
+  final String groupId;
+  final String groupName;
+  final String invitedUsername;
+  final String invitedPhone;
+  final String status;
+
+  factory SentGroupInvite.fromJson(Map<String, dynamic> json) {
+    return SentGroupInvite(
+      memberId: (json['memberId'] as String?) ?? '',
+      groupId: (json['groupId'] as String?) ?? '',
+      groupName: (json['groupName'] as String?) ?? '',
+      invitedUsername: (json['invitedUsername'] as String?) ?? '',
+      invitedPhone: (json['invitedPhone'] as String?) ?? '',
+      status: (json['status'] as String?) ?? 'PENDING',
+    );
+  }
+}
+
+class GroupActivityItem {
+  const GroupActivityItem({
+    required this.memberId,
+    required this.groupId,
+    required this.groupName,
+    required this.memberUsername,
+    required this.invitedByUsername,
+    required this.status,
+  });
+
+  final String memberId;
+  final String groupId;
+  final String groupName;
+  final String memberUsername;
+  final String invitedByUsername;
+  final String status;
+
+  factory GroupActivityItem.fromJson(Map<String, dynamic> json) {
+    return GroupActivityItem(
+      memberId: (json['memberId'] as String?) ?? '',
+      groupId: (json['groupId'] as String?) ?? '',
+      groupName: (json['groupName'] as String?) ?? '',
+      memberUsername: (json['memberUsername'] as String?) ?? '',
+      invitedByUsername: (json['invitedByUsername'] as String?) ?? 'someone',
+      status: (json['status'] as String?) ?? 'PENDING',
+    );
+  }
+}
+
 class GroupExpense {
   const GroupExpense({
     required this.id,
