@@ -204,6 +204,48 @@ class _LentScreenState extends State<LentScreen> {
     }
   }
 
+  Future<void> _showQrDialog() async {
+    try {
+      final file = await ApiClient.instance.downloadQrToTempFile();
+      if (!mounted) return;
+      if (file == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No QR image uploaded yet.')),
+        );
+        return;
+      }
+      final bytes = await file.readAsBytes();
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: AppTheme.card,
+          title: const Text('My UPI QR'),
+          content: ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: Image.memory(bytes, fit: BoxFit.contain),
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTheme.accent,
+                foregroundColor: const Color(0xFF032318),
+              ),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
+    }
+  }
+
   Future<void> _markItemDone(String id) async {
     try {
       await ApiClient.instance.completeLent(id);
@@ -349,6 +391,17 @@ class _LentScreenState extends State<LentScreen> {
                       ),
                     ],
                   ),
+                  if (_hasQr) ...[
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _showQrDialog,
+                        icon: const Icon(Icons.qr_code_scanner_rounded, size: 16),
+                        label: const Text('Show QR'),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
