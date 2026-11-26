@@ -52,6 +52,21 @@ Total ₹340
     expect(items[2].category, 'Transport');
     expect(items[3].category, 'Soap');
     expect(items[3].amount, 50);
+
+    final flex = BulkExpenseParser.parse('''
+auto, 25.11.26, 200
+24.11.26, lunch, 150
+200 coffee
+''');
+    expect(flex.length, 3);
+    expect(flex[0].category, 'Transport');
+    expect(flex[0].amount, 200);
+    expect(flex[0].date, DateTime(2026, 11, 25));
+    expect(flex[1].category, 'Food');
+    expect(flex[1].note, 'lunch');
+    expect(flex[1].date, DateTime(2026, 11, 24));
+    expect(flex[2].category, 'Food');
+    expect(flex[2].amount, 200);
   });
 
   testWidgets('SummaryCard displays total and category breakdown', (tester) async {

@@ -28,6 +28,9 @@ class BulkExpenseParser {
   static final RegExp _amountRe =
       RegExp(r'(?:₹|rs\.?|inr)?\s*([0-9,]+(?:\.[0-9]{1,2})?)\s*$', caseSensitive: false);
 
+  static final RegExp _anyAmountRe =
+      RegExp(r'(?:₹|rs\.?|inr)?\s*\b([0-9,]+(?:\.[0-9]{1,2})?)\b', caseSensitive: false);
+
   static final RegExp _othersPrefixRe =
       RegExp(r'^others?\s*[-:]\s*([a-z0-9 &]{1,40})', caseSensitive: false);
 
@@ -128,14 +131,15 @@ class BulkExpenseParser {
         }
       }
 
-      final amtMatch = _amountRe.firstMatch(work);
+      final amtMatch = _amountRe.firstMatch(work) ?? _anyAmountRe.firstMatch(work);
       if (amtMatch == null) continue;
       final amount = double.tryParse((amtMatch.group(1) ?? '').replaceAll(',', ''));
       if (amount == null || amount <= 0 || amount > 99999999.99) continue;
 
       final labelPart = work
-          .substring(0, amtMatch.start)
-          .replaceAll(RegExp(r'[=,\s]+$'), '')
+          .replaceRange(amtMatch.start, amtMatch.end, ' ')
+          .replaceAll(RegExp(r'^[\s,=:-]+|[\s,=:-]+$'), '')
+          .replaceAll(RegExp(r'\s+'), ' ')
           .trim();
       if (labelPart.isEmpty) continue;
 
