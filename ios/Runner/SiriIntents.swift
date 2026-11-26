@@ -21,17 +21,40 @@ private enum SiriApiHelper {
   }
 
   static func readKeychain(_ key: String) -> String? {
-    let query: [String: Any] = [
+    let services = [
+      "flutter_secure_storage_service",
+      Bundle.main.bundleIdentifier ?? "",
+    ].filter { !$0.isEmpty }
+
+    for svc in services {
+      let query: [String: Any] = [
+        kSecClass as String: kSecClassGenericPassword,
+        kSecAttrService as String: svc,
+        kSecAttrAccount as String: key,
+        kSecReturnData as String: true,
+        kSecMatchLimit as String: kSecMatchLimitOne,
+      ]
+      var item: CFTypeRef?
+      if SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess,
+         let data = item as? Data,
+         let str = String(data: data, encoding: .utf8) {
+        return str
+      }
+    }
+
+    // Fallback: match by account alone
+    let fallback: [String: Any] = [
       kSecClass as String: kSecClassGenericPassword,
-      kSecAttrService as String: "flutter_secure_storage_service",
       kSecAttrAccount as String: key,
       kSecReturnData as String: true,
       kSecMatchLimit as String: kSecMatchLimitOne,
     ]
     var item: CFTypeRef?
-    let status = SecItemCopyMatching(query as CFDictionary, &item)
-    guard status == errSecSuccess, let data = item as? Data else { return nil }
-    return String(data: data, encoding: .utf8)
+    if SecItemCopyMatching(fallback as CFDictionary, &item) == errSecSuccess,
+       let data = item as? Data {
+      return String(data: data, encoding: .utf8)
+    }
+    return nil
   }
 
   static func saveKeychain(_ key: String, value: String) {

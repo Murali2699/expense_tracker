@@ -7,6 +7,7 @@ import '../models/expense.dart';
 import '../providers/expense_controller.dart';
 import '../theme/app_theme.dart';
 import '../widgets/adaptive_bottom_nav.dart';
+import '../widgets/bulk_upload_sheet.dart';
 import '../widgets/expense_tile.dart';
 import '../widgets/filter_bar.dart';
 import '../widgets/summary_card.dart';
@@ -226,19 +227,49 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       floatingActionButton: _navIndex == 0
-          ? FloatingActionButton.extended(
-              onPressed: () async {
-                await Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => AddExpenseScreen(controller: _controller),
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FloatingActionButton.extended(
+                  heroTag: 'bulkFab',
+                  backgroundColor: AppTheme.card,
+                  foregroundColor: AppTheme.accent,
+                  onPressed: () async {
+                    await showModalBottomSheet<void>(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: AppTheme.card,
+                      shape: const RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.vertical(top: Radius.circular(24)),
+                      ),
+                      builder: (_) => BulkUploadSheet(controller: _controller),
+                    );
+                  },
+                  icon: const Icon(Icons.auto_awesome_rounded),
+                  label: const Text(
+                    'Bulk',
+                    style: TextStyle(fontWeight: FontWeight.w700),
                   ),
-                );
-              },
-              icon: const Icon(Icons.add_rounded),
-              label: const Text(
-                'Add',
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
+                ),
+                const SizedBox(width: 10),
+                FloatingActionButton.extended(
+                  heroTag: 'addFab',
+                  onPressed: () async {
+                    await Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            AddExpenseScreen(controller: _controller),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.add_rounded),
+                  label: const Text(
+                    'Add',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
             )
           : null,
       bottomNavigationBar: AdaptiveBottomNav(
@@ -285,6 +316,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 datePreset: _controller.datePreset,
                 selectedMonth: _controller.selectedMonth,
                 selectedCategory: _controller.selectedCategory,
+                extraCategories: _controller.summary.byCategory
+                    .map((e) => e.category)
+                    .toList(),
                 onPresetSelected: (p) => _controller.setDatePreset(p),
                 onPickMonth: _pickMonth,
                 onPickDateRange: _pickDateRange,

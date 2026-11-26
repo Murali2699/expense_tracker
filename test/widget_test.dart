@@ -1,3 +1,4 @@
+import 'package:expense_tracker/core/bulk_expense_parser.dart';
 import 'package:expense_tracker/core/sms_service.dart';
 import 'package:expense_tracker/models/expense.dart';
 import 'package:expense_tracker/theme/app_theme.dart';
@@ -31,6 +32,26 @@ void main() {
       dateMs: nowMs,
     );
     expect(otp, isNull);
+  });
+
+  test('BulkExpenseParser segregates dates, categories, totals, and others-*', () {
+    const input = '''
+25.11.26
+Lunch ₹140
+Snacks ₹100
+Uber ₹100
+others-soap ₹50
+Total ₹340
+''';
+    final items = BulkExpenseParser.parse(input);
+    expect(items.length, 4);
+    expect(items[0].category, 'Food');
+    expect(items[0].amount, 140);
+    expect(items[0].date, DateTime(2026, 11, 25));
+    expect(items[1].category, 'Food');
+    expect(items[2].category, 'Transport');
+    expect(items[3].category, 'Soap');
+    expect(items[3].amount, 50);
   });
 
   testWidgets('SummaryCard displays total and category breakdown', (tester) async {
