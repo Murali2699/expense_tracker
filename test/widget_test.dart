@@ -67,6 +67,18 @@ auto, 25.11.26, 200
     expect(flex[1].date, DateTime(2026, 11, 24));
     expect(flex[2].category, 'Food');
     expect(flex[2].amount, 200);
+
+    final textMonths = BulkExpenseParser.parse('''
+21-aug-2026
+lunch 100
+21 aug 2026, uber, 150
+21 8 2026 snacks 50
+21,august,2026 tea 20
+''');
+    expect(textMonths.length, 4);
+    for (final item in textMonths) {
+      expect(item.date, DateTime(2026, 8, 21));
+    }
   });
 
   testWidgets('SummaryCard displays total and category breakdown', (tester) async {

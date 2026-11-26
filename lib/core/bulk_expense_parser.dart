@@ -15,12 +15,40 @@ class ParsedBulkExpense {
 class BulkExpenseParser {
   BulkExpenseParser._();
 
+  static const Map<String, int> _months = {
+    'jan': 1, 'january': 1,
+    'feb': 2, 'february': 2,
+    'mar': 3, 'march': 3,
+    'apr': 4, 'april': 4,
+    'may': 5,
+    'jun': 6, 'june': 6,
+    'jul': 7, 'july': 7,
+    'aug': 8, 'august': 8,
+    'sep': 9, 'sept': 9, 'september': 9,
+    'oct': 10, 'october': 10,
+    'nov': 11, 'november': 11,
+    'dec': 12, 'december': 12,
+  };
+
+  static const String _monthPattern =
+      r'jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?';
+
   static final RegExp _dateHeaderRe = RegExp(
-    r'^(?:(\d{4})-(\d{1,2})-(\d{1,2})|(\d{1,2})[./-](\d{1,2})[./-](\d{2,4}))$',
+    '^('
+    r'(\d{4})[-./](\d{1,2})[-./](\d{1,2})'
+    '|'
+    '(\\d{1,2})(?:st|nd|rd|th)?[\\s,./-]+($_monthPattern|\\d{1,2})[\\s,./-]+(\\d{2,4})'
+    r')$',
+    caseSensitive: false,
   );
 
   static final RegExp _inlineDateRe = RegExp(
-    r'\b(?:(\d{4})-(\d{1,2})-(\d{1,2})|(\d{1,2})[./-](\d{1,2})[./-](\d{2,4}))\b',
+    r'\b(?:'
+    r'(\d{4})[-./](\d{1,2})[-./](\d{1,2})'
+    '|'
+    '(\\d{1,2})(?:st|nd|rd|th)?[\\s,./-]+($_monthPattern|\\d{1,2})[\\s,./-]+(\\d{2,4})'
+    r')\b',
+    caseSensitive: false,
   );
 
   static final RegExp _totalLineRe = RegExp(r'\btotal\b', caseSensitive: false);
@@ -34,16 +62,18 @@ class BulkExpenseParser {
   static final RegExp _othersPrefixRe =
       RegExp(r'^others?\s*[-:]\s*([a-z0-9 &]{1,40})', caseSensitive: false);
 
-  static DateTime? _parseDateMatch(RegExpMatch m) {
+  static DateTime? _parseDateMatch(RegExpMatch m, {bool hasOuterGroup = false}) {
+    final offset = hasOuterGroup ? 1 : 0;
     int y, mo, d;
-    if (m.group(1) != null) {
-      y = int.parse(m.group(1)!);
-      mo = int.parse(m.group(2)!);
-      d = int.parse(m.group(3)!);
+    if (m.group(1 + offset) != null) {
+      y = int.parse(m.group(1 + offset)!);
+      mo = int.parse(m.group(2 + offset)!);
+      d = int.parse(m.group(3 + offset)!);
     } else {
-      d = int.parse(m.group(4)!);
-      mo = int.parse(m.group(5)!);
-      y = int.parse(m.group(6)!);
+      d = int.parse(m.group(4 + offset)!);
+      final rawMo = m.group(5 + offset)!.toLowerCase();
+      mo = _months[rawMo] ?? int.tryParse(rawMo) ?? 0;
+      y = int.parse(m.group(6 + offset)!);
       if (y < 100) y += 2000;
     }
     if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
@@ -112,7 +142,7 @@ class BulkExpenseParser {
 
       final headerDateMatch = _dateHeaderRe.firstMatch(line);
       if (headerDateMatch != null) {
-        final parsed = _parseDateMatch(headerDateMatch);
+        final parsed = _parseDateMatch(headerDateMatch, hasOuterGroup: true);
         if (parsed != null) currentDate = parsed;
         continue;
       }
