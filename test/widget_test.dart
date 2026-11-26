@@ -79,6 +79,20 @@ lunch 100
     for (final item in textMonths) {
       expect(item.date, DateTime(2026, 8, 21));
     }
+
+    final totalOnly = BulkExpenseParser.parse('''
+23.11.26
+Total =₹2629
+24.11.26
+Total = ₹1330
+''');
+    expect(totalOnly.length, 2);
+    expect(totalOnly[0].category, 'Other');
+    expect(totalOnly[0].amount, 2629);
+    expect(totalOnly[0].date, DateTime(2026, 11, 23));
+    expect(totalOnly[1].category, 'Other');
+    expect(totalOnly[1].amount, 1330);
+    expect(totalOnly[1].date, DateTime(2026, 11, 24));
   });
 
   testWidgets('SummaryCard displays total and category breakdown', (tester) async {

@@ -135,6 +135,23 @@ class BulkExpenseParser {
   static List<ParsedBulkExpense> parse(String raw) {
     final results = <ParsedBulkExpense>[];
     DateTime currentDate = DateTime.now();
+    bool hasItemsForDate = false;
+    double? pendingTotalForDate;
+
+    void flushPendingTotal() {
+      if (!hasItemsForDate && pendingTotalForDate != null) {
+        results.add(
+          ParsedBulkExpense(
+            date: currentDate,
+            category: 'Other',
+            amount: pendingTotalForDate!,
+            note: 'Other Total',
+          ),
+        );
+      }
+      hasItemsForDate = false;
+      pendingTotalForDate = null;
+    }
 
     for (final rawLine in raw.split(RegExp(r'\r?\n'))) {
       final line = rawLine.trim();
@@ -143,18 +160,30 @@ class BulkExpenseParser {
       final headerDateMatch = _dateHeaderRe.firstMatch(line);
       if (headerDateMatch != null) {
         final parsed = _parseDateMatch(headerDateMatch, hasOuterGroup: true);
-        if (parsed != null) currentDate = parsed;
+        if (parsed != null) {
+          flushPendingTotal();
+          currentDate = parsed;
+        }
         continue;
       }
 
-      if (_totalLineRe.hasMatch(line)) continue;
+      if (_totalLineRe.hasMatch(line)) {
+        final totMatch = _anyAmountRe.firstMatch(line);
+        if (totMatch != null) {
+          final tot = double.tryParse((totMatch.group(1) ?? '').replaceAll(',', ''));
+          if (tot != null && tot > 0 && tot <= 99999999.99) {
+            pendingTotalForDate = tot;
+          }
+        }
+        continue;
+      }
 
       // Extract optional inline date (e.g. "others-soap, 23.11.26, 50")
       DateTime itemDate = currentDate;
       var work = line;
       final inlineMatch = _inlineDateRe.firstMatch(work);
       if (inlineMatch != null) {
-        final parsed = _parseDateMatch(inlineMatch);
+        final parsed = _parseDateMatch(inlineMatch, hasOuterGroup: false);
         if (parsed != null) {
           itemDate = parsed;
           work = work.replaceRange(inlineMatch.start, inlineMatch.end, ' ').trim();
@@ -178,6 +207,7 @@ class BulkExpenseParser {
           ? category
           : labelPart;
 
+      hasItemsForDate = true;
       results.add(
         ParsedBulkExpense(
           date: itemDate,
@@ -188,6 +218,7 @@ class BulkExpenseParser {
       );
     }
 
+    flushPendingTotal();
     return results;
   }
 }

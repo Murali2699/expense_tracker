@@ -8,6 +8,7 @@ import '../widgets/adaptive_bottom_nav.dart';
 import '../widgets/bulk_upload_sheet.dart';
 import '../widgets/expense_tile.dart';
 import '../widgets/filter_bar.dart';
+import '../widgets/share_expense_sheet.dart';
 import '../widgets/summary_card.dart';
 import 'add_expense_screen.dart';
 import 'auto_expenses_screen.dart';
@@ -128,6 +129,24 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: Text(_titles[_navIndex]),
         actions: [
+          if (_navIndex == 0)
+            IconButton(
+              tooltip: 'Send Expense to WhatsApp',
+              icon: const Icon(Icons.share_rounded, color: AppTheme.accent),
+              onPressed: () async {
+                FocusManager.instance.primaryFocus?.unfocus();
+                await showModalBottomSheet<void>(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: AppTheme.card,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.vertical(top: Radius.circular(24)),
+                  ),
+                  builder: (_) => const ShareExpenseSheet(),
+                );
+              },
+            ),
           if (widget.biometricAvailable)
             IconButton(
               tooltip: widget.biometricEnabled
