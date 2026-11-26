@@ -53,7 +53,7 @@ class _ExpenseTrackerAppState extends State<ExpenseTrackerApp>
         state == AppLifecycleState.paused) {
       setState(() {
         _inBackground = true;
-        if (_biometricEnabled && _loggedIn) {
+        if (state == AppLifecycleState.paused && _biometricEnabled && _loggedIn) {
           _locked = true;
         }
       });

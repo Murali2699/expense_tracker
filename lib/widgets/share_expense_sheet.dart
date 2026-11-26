@@ -176,11 +176,21 @@ class _ShareExpenseSheetState extends State<ShareExpenseSheet> {
         );
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       } else {
-        final box = context.findRenderObject() as RenderBox?;
-        final origin = (box != null && box.hasSize && !box.size.isEmpty)
-            ? box.localToGlobal(Offset.zero) & box.size
-            : const Rect.fromLTWH(0, 0, 100, 100);
-        await Share.share(message, sharePositionOrigin: origin);
+        final waPickerUri = Uri.parse(
+          'whatsapp://send?text=${Uri.encodeComponent(message)}',
+        );
+        final launchedWa = await launchUrl(
+          waPickerUri,
+          mode: LaunchMode.externalApplication,
+        );
+        if (!launchedWa) {
+          if (!mounted) return;
+          final box = context.findRenderObject() as RenderBox?;
+          final origin = (box != null && box.hasSize && !box.size.isEmpty)
+              ? box.localToGlobal(Offset.zero) & box.size
+              : const Rect.fromLTWH(0, 0, 100, 100);
+          await Share.share(message, sharePositionOrigin: origin);
+        }
       }
 
       if (mounted) Navigator.pop(context);

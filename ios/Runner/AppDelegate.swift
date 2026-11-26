@@ -18,6 +18,22 @@ import UIKit
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    let clipboardChannel = FlutterMethodChannel(
+      name: "in.muralikrishnan.expense_tracker/clipboard",
+      binaryMessenger: engineBridge.applicationRegistrar.messenger()
+    )
+    clipboardChannel.setMethodCallHandler { call, result in
+      if call.method == "copyImage",
+         let args = call.arguments as? [String: Any],
+         let path = args["path"] as? String,
+         let image = UIImage(contentsOfFile: path) {
+        UIPasteboard.general.image = image
+        result(true)
+      } else {
+        result(false)
+      }
+    }
+
     let channel = FlutterMethodChannel(
       name: "in.muralikrishnan.expense_tracker/contacts",
       binaryMessenger: engineBridge.applicationRegistrar.messenger()

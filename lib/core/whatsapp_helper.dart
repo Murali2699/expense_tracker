@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -6,6 +9,10 @@ import 'api_client.dart';
 
 class WhatsAppHelper {
   WhatsAppHelper._();
+
+  static const _clipboardChannel = MethodChannel(
+    'in.muralikrishnan.expense_tracker/clipboard',
+  );
 
   static Rect _shareOrigin(BuildContext context) {
     final box = context.findRenderObject() as RenderBox?;
@@ -40,12 +47,24 @@ class WhatsAppHelper {
       if (result.hasQr) {
         final qrFile = await ApiClient.instance.downloadQrToTempFile();
         if (qrFile != null) {
-          await Share.shareXFiles(
-            [XFile(qrFile.path)],
-            text: result.message,
-            sharePositionOrigin: origin,
-          );
-          return;
+          if (Platform.isIOS) {
+            await _clipboardChannel.invokeMethod<bool>(
+              'copyImage',
+              {'path': qrFile.path},
+            );
+            messenger.showSnackBar(
+              const SnackBar(
+                content: Text('UPI QR copied — paste in WhatsApp chat if needed.'),
+              ),
+            );
+          } else {
+            await Share.shareXFiles(
+              [XFile(qrFile.path)],
+              text: result.message,
+              sharePositionOrigin: origin,
+            );
+            return;
+          }
         }
       }
 

@@ -93,6 +93,24 @@ private enum SiriApiHelper {
     return newAccess
   }
 
+  static func downloadQrImage() async -> UIImage? {
+    guard let token = readKeychain("access_token"),
+          let url = URL(string: "\(apiBaseUrl())/api/v1/qr") else {
+      return nil
+    }
+    var req = URLRequest(url: url)
+    req.httpMethod = "GET"
+    req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+    req.timeoutInterval = 12
+    guard let (data, resp) = try? await URLSession.shared.data(for: req),
+          let http = resp as? HTTPURLResponse,
+          http.statusCode == 200,
+          let img = UIImage(data: data) else {
+      return nil
+    }
+    return img
+  }
+
   static func request(
     path: String,
     method: String = "GET",
@@ -220,13 +238,22 @@ struct SendReminderIntent: AppIntent {
       return .result(dialog: "WhatsApp reminder sent to \(personName).")
     }
 
+    let hasQr = (remJson["hasQr"] as? Bool) ?? false
+    if hasQr, let qrImage = await SiriApiHelper.downloadQrImage() {
+      await MainActor.run {
+        UIPasteboard.general.image = qrImage
+      }
+    }
+
+    let targetPhone = (remJson["phoneNumber"] as? String) ?? phone
     let message = (remJson["message"] as? String) ?? ""
     let encoded = message.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-    if let waUrl = URL(string: "https://wa.me/\(phone)?text=\(encoded)") {
+    if let waUrl = URL(string: "https://wa.me/\(targetPhone)?text=\(encoded)") {
       await MainActor.run {
         UIApplication.shared.open(waUrl)
       }
-      return .result(dialog: "Opening WhatsApp reminder for \(personName).")
+      let qrNote = hasQr ? " QR scanner copied to clipboard." : ""
+      return .result(dialog: "Opening WhatsApp reminder for \(personName).\(qrNote)")
     }
     return .result(dialog: "Could not open WhatsApp.")
   }
