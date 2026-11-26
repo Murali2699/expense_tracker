@@ -8,6 +8,8 @@ import '../core/contact_picker.dart';
 import '../models/expense.dart';
 import '../theme/app_theme.dart';
 
+enum _SharePeriodMode { singleDate, customMonth, monthRange }
+
 class ShareExpenseSheet extends StatefulWidget {
   const ShareExpenseSheet({super.key});
 
@@ -17,10 +19,15 @@ class ShareExpenseSheet extends StatefulWidget {
 
 class _ShareExpenseSheetState extends State<ShareExpenseSheet> {
   final _phoneCtrl = TextEditingController();
-  bool _byMonth = false;
+  _SharePeriodMode _mode = _SharePeriodMode.singleDate;
   DateTime _selectedDate = DateTime.now();
   int _selectedYear = DateTime.now().year;
   int _selectedMonth = DateTime.now().month;
+  int _fromYear = DateTime.now().year;
+  int _fromMonth = DateTime.now().month;
+  int _toYear = DateTime.now().year;
+  int _toMonth = DateTime.now().month;
+  String? _selectedCategory;
   bool _sending = false;
   String? _error;
 
@@ -94,9 +101,8 @@ class _ShareExpenseSheetState extends State<ShareExpenseSheet> {
     return lines.join('\n');
   }
 
-  String _formatMonthMessage(int year, int month, List<Expense> list) {
+  String _formatPeriodMessage(String titleLabel, List<Expense> list) {
     final currency = NumberFormat.currency(locale: 'en_IN', symbol: '₹');
-    final monthName = DateFormat('MMMM yyyy').format(DateTime(year, month, 1));
 
     // Group date-wise -> category totals
     final byDate = <String, List<Expense>>{};
@@ -108,7 +114,7 @@ class _ShareExpenseSheetState extends State<ShareExpenseSheet> {
     }
 
     final sortedDates = byDate.keys.toList()..sort();
-    final lines = <String>['Here are my *$monthName* expenses:', ''];
+    final lines = <String>['Here are my *$titleLabel* expenses:', ''];
 
     for (final dKey in sortedDates) {
       final items = byDate[dKey]!;
@@ -129,7 +135,7 @@ class _ShareExpenseSheetState extends State<ShareExpenseSheet> {
       lines.add('');
     }
 
-    lines.add('*Final Month Total: ${currency.format(grandTotal)}*');
+    lines.add('*Final Total: ${currency.format(grandTotal)}*');
     return lines.join('\n');
   }
 
@@ -143,28 +149,50 @@ class _ShareExpenseSheetState extends State<ShareExpenseSheet> {
     try {
       final DateTime from;
       final DateTime to;
-      if (_byMonth) {
+      if (_mode == _SharePeriodMode.customMonth) {
         from = DateTime(_selectedYear, _selectedMonth, 1);
         to = DateTime(_selectedYear, _selectedMonth + 1, 0);
+      } else if (_mode == _SharePeriodMode.monthRange) {
+        final start = DateTime(_fromYear, _fromMonth, 1);
+        final end = DateTime(_toYear, _toMonth + 1, 0);
+        if (end.isBefore(start)) {
+          from = DateTime(_toYear, _toMonth, 1);
+          to = DateTime(_fromYear, _fromMonth + 1, 0);
+        } else {
+          from = start;
+          to = end;
+        }
       } else {
         from = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
         to = from;
       }
 
-      final res = await ApiClient.instance.fetchExpenses(from: from, to: to);
+      final res = await ApiClient.instance.fetchExpenses(
+        from: from,
+        to: to,
+        category: _selectedCategory,
+      );
       if (res.expenses.isEmpty) {
         if (mounted) {
           setState(() {
             _sending = false;
-            _error = 'No expenses found for the selected period.';
+            _error = 'No expenses found for the selected filter.';
           });
         }
         return;
       }
 
-      final message = _byMonth
-          ? _formatMonthMessage(_selectedYear, _selectedMonth, res.expenses)
-          : _formatSingleDateMessage(_selectedDate, res.expenses);
+      String message;
+      if (_mode == _SharePeriodMode.singleDate) {
+        message = _formatSingleDateMessage(_selectedDate, res.expenses);
+      } else if (_mode == _SharePeriodMode.customMonth) {
+        final mName = DateFormat('MMMM yyyy').format(DateTime(_selectedYear, _selectedMonth, 1));
+        message = _formatPeriodMessage(mName, res.expenses);
+      } else {
+        final fName = DateFormat('MMM yyyy').format(from);
+        final tName = DateFormat('MMM yyyy').format(to);
+        message = _formatPeriodMessage(fName == tName ? fName : '$fName – $tName', res.expenses);
+      }
 
       final rawPhone = _phoneCtrl.text.trim().replaceAll(RegExp(r'\D'), '');
       if (!mounted) return;
@@ -243,16 +271,17 @@ class _ShareExpenseSheetState extends State<ShareExpenseSheet> {
                 ),
               ),
               const SizedBox(height: 14),
-              SegmentedButton<bool>(
+              SegmentedButton<_SharePeriodMode>(
                 segments: const [
-                  ButtonSegment(value: false, label: Text('Single Date')),
-                  ButtonSegment(value: true, label: Text('Full Month')),
+                  ButtonSegment(value: _SharePeriodMode.singleDate, label: Text('Date')),
+                  ButtonSegment(value: _SharePeriodMode.customMonth, label: Text('Month')),
+                  ButtonSegment(value: _SharePeriodMode.monthRange, label: Text('Month–Month')),
                 ],
-                selected: {_byMonth},
-                onSelectionChanged: (s) => setState(() => _byMonth = s.first),
+                selected: {_mode},
+                onSelectionChanged: (s) => setState(() => _mode = s.first),
               ),
               const SizedBox(height: 14),
-              if (!_byMonth)
+              if (_mode == _SharePeriodMode.singleDate)
                 OutlinedButton.icon(
                   onPressed: _pickDate,
                   icon: const Icon(Icons.calendar_today_rounded),
@@ -262,7 +291,7 @@ class _ShareExpenseSheetState extends State<ShareExpenseSheet> {
                     side: const BorderSide(color: AppTheme.border),
                   ),
                 )
-              else
+              else if (_mode == _SharePeriodMode.customMonth)
                 Row(
                   children: [
                     Expanded(
@@ -302,7 +331,97 @@ class _ShareExpenseSheetState extends State<ShareExpenseSheet> {
                       ),
                     ),
                   ],
+                )
+              else
+                Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<int>(
+                            initialValue: _fromMonth,
+                            dropdownColor: AppTheme.card,
+                            decoration: const InputDecoration(labelText: 'From Month'),
+                            items: months
+                                .map((m) => DropdownMenuItem(
+                                      value: m,
+                                      child: Text(DateFormat('MMM').format(DateTime(2026, m))),
+                                    ))
+                                .toList(),
+                            onChanged: (v) {
+                              if (v != null) setState(() => _fromMonth = v);
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: DropdownButtonFormField<int>(
+                            initialValue: years.contains(_fromYear) ? _fromYear : years.last,
+                            dropdownColor: AppTheme.card,
+                            decoration: const InputDecoration(labelText: 'From Year'),
+                            items: years
+                                .map((y) => DropdownMenuItem(value: y, child: Text('$y')))
+                                .toList(),
+                            onChanged: (v) {
+                              if (v != null) setState(() => _fromYear = v);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<int>(
+                            initialValue: _toMonth,
+                            dropdownColor: AppTheme.card,
+                            decoration: const InputDecoration(labelText: 'To Month'),
+                            items: months
+                                .map((m) => DropdownMenuItem(
+                                      value: m,
+                                      child: Text(DateFormat('MMM').format(DateTime(2026, m))),
+                                    ))
+                                .toList(),
+                            onChanged: (v) {
+                              if (v != null) setState(() => _toMonth = v);
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: DropdownButtonFormField<int>(
+                            initialValue: years.contains(_toYear) ? _toYear : years.last,
+                            dropdownColor: AppTheme.card,
+                            decoration: const InputDecoration(labelText: 'To Year'),
+                            items: years
+                                .map((y) => DropdownMenuItem(value: y, child: Text('$y')))
+                                .toList(),
+                            onChanged: (v) {
+                              if (v != null) setState(() => _toYear = v);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: _selectedCategory ?? '',
+                dropdownColor: AppTheme.card,
+                decoration: const InputDecoration(labelText: 'Category'),
+                items: [
+                  const DropdownMenuItem(value: '', child: Text('All Categories')),
+                  ...kDefaultCategories.map(
+                    (c) => DropdownMenuItem(value: c.name, child: Text(c.name)),
+                  ),
+                  const DropdownMenuItem(value: 'Bank/UPI', child: Text('Bank/UPI')),
+                ],
+                onChanged: (v) => setState(
+                  () => _selectedCategory = (v == null || v.isEmpty) ? null : v,
+                ),
+              ),
               if (_error != null) ...[
                 const SizedBox(height: 10),
                 Text(_error!, style: const TextStyle(color: AppTheme.danger)),

@@ -37,7 +37,15 @@ class ExpenseController extends ChangeNotifier {
       case DateFilterPreset.thisMonth:
         return '${DateFormat('MMMM yyyy').format(DateTime.now())} Spent';
       case DateFilterPreset.selectedMonth:
+      case DateFilterPreset.customMonth:
         return '${DateFormat('MMMM yyyy').format(_selectedMonth)} Spent';
+      case DateFilterPreset.monthRange:
+        if (_customFrom != null && _customTo != null) {
+          final f = DateFormat('MMM yyyy').format(_customFrom!);
+          final t = DateFormat('MMM yyyy').format(_customTo!);
+          return f == t ? '$f Spent' : '$f – $t';
+        }
+        return 'Month Range Spent';
       case DateFilterPreset.customRange:
         if (_customFrom != null && _customTo != null) {
           final f = DateFormat('dd MMM yyyy').format(_customFrom!);
@@ -65,9 +73,11 @@ class ExpenseController extends ChangeNotifier {
         final end = DateTime(now.year, now.month + 1, 0);
         return (from: start, to: end);
       case DateFilterPreset.selectedMonth:
+      case DateFilterPreset.customMonth:
         final start = DateTime(_selectedMonth.year, _selectedMonth.month, 1);
         final end = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0);
         return (from: start, to: end);
+      case DateFilterPreset.monthRange:
       case DateFilterPreset.customRange:
         return (from: _customFrom, to: _customTo);
       case DateFilterPreset.all:
@@ -107,6 +117,19 @@ class ExpenseController extends ChangeNotifier {
 
   Future<void> setCustomDateRange(DateTime from, DateTime to) async {
     _datePreset = DateFilterPreset.customRange;
+    _customFrom = from;
+    _customTo = to;
+    await loadExpenses();
+  }
+
+  Future<void> setCustomMonth(DateTime month) async {
+    _datePreset = DateFilterPreset.customMonth;
+    _selectedMonth = DateTime(month.year, month.month, 1);
+    await loadExpenses();
+  }
+
+  Future<void> setMonthRange(DateTime from, DateTime to) async {
+    _datePreset = DateFilterPreset.monthRange;
     _customFrom = from;
     _customTo = to;
     await loadExpenses();

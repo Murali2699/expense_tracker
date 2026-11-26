@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import '../config/env.dart';
 import '../models/credit_record.dart';
 import '../models/expense.dart';
+import '../models/group.dart';
 import 'local_db.dart';
 import 'secure_storage.dart';
 import 'sync_service.dart';
@@ -799,7 +800,7 @@ class ApiClient {
     return ReminderResult.fromJson(data);
   }
 
-  Future<String> fetchUpiId() async {
+  Future<({String upiId, bool hasQr, String phoneNumber})> fetchUpiInfo() async {
     try {
       final uri = Uri.parse('$_baseUrl/api/v1/qr/info');
       final resp = await _sendWithRefresh(
@@ -807,11 +808,69 @@ class ApiClient {
             .get(uri, headers: {'Authorization': 'Bearer $token'})
             .timeout(_timeout),
       );
-      if (resp.statusCode != 200) return '';
+      if (resp.statusCode != 200) {
+        return (upiId: '', hasQr: false, phoneNumber: '');
+      }
       final data = _decodeJson(resp.body);
-      return (data['upiId'] as String?)?.trim() ?? '';
+      return (
+        upiId: (data['upiId'] as String?)?.trim() ?? '',
+        hasQr: (data['hasQr'] as bool?) ?? false,
+        phoneNumber: (data['phoneNumber'] as String?)?.trim() ?? '',
+      );
     } catch (_) {
-      return '';
+      return (upiId: '', hasQr: false, phoneNumber: '');
+    }
+  }
+
+  Future<String> fetchUpiId() async {
+    final info = await fetchUpiInfo();
+    return info.upiId;
+  }
+
+  Future<({String upiId, bool hasQr, String phoneNumber})> updateUpiInfo({
+    required String upiId,
+    String? phoneNumber,
+  }) async {
+    final uri = Uri.parse('$_baseUrl/api/v1/qr/upi');
+    final payload = <String, dynamic>{'upiId': upiId.trim()};
+    if (phoneNumber != null) {
+      payload['phoneNumber'] = phoneNumber.trim();
+    }
+    final resp = await _sendWithRefresh(
+      (token) => _http
+          .put(
+            uri,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode(payload),
+          )
+          .timeout(_timeout),
+    );
+    final data = _decodeJson(resp.body);
+    if (resp.statusCode != 200) {
+      throw ApiException(data['error'] as String? ?? 'Failed to save UPI ID');
+    }
+    return (
+      upiId: (data['upiId'] as String?)?.trim() ?? '',
+      hasQr: (data['hasQr'] as bool?) ?? false,
+      phoneNumber: (data['phoneNumber'] as String?)?.trim() ?? '',
+    );
+  }
+
+  Future<void> uploadQrImage(File file) async {
+    final uri = Uri.parse('$_baseUrl/api/v1/qr/upload');
+    final resp = await _sendWithRefresh((token) async {
+      final req = http.MultipartRequest('POST', uri)
+        ..headers['Authorization'] = 'Bearer $token'
+        ..files.add(await http.MultipartFile.fromPath('qr', file.path));
+      final streamed = await _http.send(req).timeout(const Duration(seconds: 30));
+      return http.Response.fromStream(streamed);
+    });
+    if (resp.statusCode != 200) {
+      final data = _decodeJson(resp.body);
+      throw ApiException(data['error'] as String? ?? 'Failed to upload QR image');
     }
   }
 
@@ -827,6 +886,202 @@ class ApiClient {
     final file = File('${dir.path}/upi-qr.png');
     await file.writeAsBytes(resp.bodyBytes, flush: true);
     return file;
+  }
+
+  // --- Groups ---
+
+  Future<UserLookup> lookupUser(String username) async {
+    final uri = Uri.parse('$_baseUrl/api/v1/users/lookup').replace(
+      queryParameters: {'username': username.trim()},
+    );
+    final resp = await _sendWithRefresh(
+      (token) => _http
+          .get(uri, headers: {'Authorization': 'Bearer $token'})
+          .timeout(_timeout),
+    );
+    final data = _decodeJson(resp.body);
+    if (resp.statusCode != 200) {
+      throw ApiException(data['error'] as String? ?? 'User not found');
+    }
+    return UserLookup.fromJson(data['user'] as Map<String, dynamic>);
+  }
+
+  Future<({List<ExpenseGroup> groups, List<GroupRequest> pendingRequests})>
+      fetchGroups() async {
+    final uri = Uri.parse('$_baseUrl/api/v1/groups');
+    final resp = await _sendWithRefresh(
+      (token) => _http
+          .get(uri, headers: {'Authorization': 'Bearer $token'})
+          .timeout(_timeout),
+    );
+    final data = _decodeJson(resp.body);
+    if (resp.statusCode != 200) {
+      throw ApiException(data['error'] as String? ?? 'Failed to load groups');
+    }
+    final groups = ((data['groups'] as List<dynamic>?) ?? const [])
+        .map((e) => ExpenseGroup.fromJson(e as Map<String, dynamic>))
+        .toList();
+    final requests = ((data['pendingRequests'] as List<dynamic>?) ?? const [])
+        .map((e) => GroupRequest.fromJson(e as Map<String, dynamic>))
+        .toList();
+    return (groups: groups, pendingRequests: requests);
+  }
+
+  Future<String> createGroup({
+    required String name,
+    String? inviteUsername,
+  }) async {
+    final uri = Uri.parse('$_baseUrl/api/v1/groups');
+    final body = <String, dynamic>{'name': name.trim()};
+    if (inviteUsername != null && inviteUsername.trim().isNotEmpty) {
+      body['inviteUsername'] = inviteUsername.trim();
+    }
+    final resp = await _sendWithRefresh(
+      (token) => _http
+          .post(
+            uri,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode(body),
+          )
+          .timeout(_timeout),
+    );
+    final data = _decodeJson(resp.body);
+    if (resp.statusCode != 201) {
+      throw ApiException(data['error'] as String? ?? 'Failed to create group');
+    }
+    return (data['group'] as Map<String, dynamic>)['id'] as String;
+  }
+
+  Future<void> inviteToGroup({
+    required String groupId,
+    required String username,
+  }) async {
+    final uri = Uri.parse('$_baseUrl/api/v1/groups/$groupId/invite');
+    final resp = await _sendWithRefresh(
+      (token) => _http
+          .post(
+            uri,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({'username': username.trim()}),
+          )
+          .timeout(_timeout),
+    );
+    if (resp.statusCode != 200) {
+      final data = _decodeJson(resp.body);
+      throw ApiException(data['error'] as String? ?? 'Failed to send request');
+    }
+  }
+
+  Future<void> respondToGroupRequest({
+    required String memberId,
+    required String action,
+  }) async {
+    final uri = Uri.parse('$_baseUrl/api/v1/groups/requests/$memberId/respond');
+    final resp = await _sendWithRefresh(
+      (token) => _http
+          .post(
+            uri,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({'action': action}),
+          )
+          .timeout(_timeout),
+    );
+    if (resp.statusCode != 200) {
+      final data = _decodeJson(resp.body);
+      throw ApiException(data['error'] as String? ?? 'Failed to respond');
+    }
+  }
+
+  Future<({List<GroupExpense> expenses, double totalAmount, List<GroupUserSummary> byUser})>
+      fetchGroupExpenses({
+    required String groupId,
+    DateTime? from,
+    DateTime? to,
+    String? category,
+  }) async {
+    final params = <String, String>{};
+    final fmt = DateFormat('yyyy-MM-dd');
+    if (from != null) params['from'] = fmt.format(from);
+    if (to != null) params['to'] = fmt.format(to);
+    if (category != null && category.trim().isNotEmpty) {
+      params['category'] = category.trim();
+    }
+    final uri = Uri.parse('$_baseUrl/api/v1/groups/$groupId/expenses')
+        .replace(queryParameters: params.isEmpty ? null : params);
+    final resp = await _sendWithRefresh(
+      (token) => _http
+          .get(uri, headers: {'Authorization': 'Bearer $token'})
+          .timeout(_timeout),
+    );
+    final data = _decodeJson(resp.body);
+    if (resp.statusCode != 200) {
+      throw ApiException(data['error'] as String? ?? 'Failed to load group expenses');
+    }
+    final expenses = ((data['expenses'] as List<dynamic>?) ?? const [])
+        .map((e) => GroupExpense.fromJson(e as Map<String, dynamic>))
+        .toList();
+    final summary = (data['summary'] as Map<String, dynamic>?) ?? const {};
+    final totalAmount = (summary['totalAmount'] as num?)?.toDouble() ?? 0;
+    final byUser = ((summary['byUser'] as List<dynamic>?) ?? const [])
+        .map((e) => GroupUserSummary.fromJson(e as Map<String, dynamic>))
+        .toList();
+    return (expenses: expenses, totalAmount: totalAmount, byUser: byUser);
+  }
+
+  Future<void> addGroupExpense({
+    required String groupId,
+    required DateTime expenseDate,
+    required String category,
+    required double amount,
+    String note = '',
+  }) async {
+    final uri = Uri.parse('$_baseUrl/api/v1/groups/$groupId/expenses');
+    final resp = await _sendWithRefresh(
+      (token) => _http
+          .post(
+            uri,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({
+              'expenseDate': DateFormat('yyyy-MM-dd').format(expenseDate),
+              'category': category.trim(),
+              'amount': amount,
+              'note': note.trim(),
+            }),
+          )
+          .timeout(_timeout),
+    );
+    if (resp.statusCode != 201) {
+      final data = _decodeJson(resp.body);
+      throw ApiException(data['error'] as String? ?? 'Failed to add group expense');
+    }
+  }
+
+  Future<void> deleteGroupExpense({
+    required String groupId,
+    required String expenseId,
+  }) async {
+    final uri = Uri.parse('$_baseUrl/api/v1/groups/$groupId/expenses/$expenseId');
+    final resp = await _sendWithRefresh(
+      (token) => _http
+          .delete(uri, headers: {'Authorization': 'Bearer $token'})
+          .timeout(_timeout),
+    );
+    if (resp.statusCode != 200) {
+      final data = _decodeJson(resp.body);
+      throw ApiException(data['error'] as String? ?? 'Failed to delete expense');
+    }
   }
 
   // --- Borrowed ("I Bought From") ---

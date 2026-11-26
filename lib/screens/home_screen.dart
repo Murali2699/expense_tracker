@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/api_client.dart';
 import '../core/biometric_service.dart';
 import '../core/secure_storage.dart';
 import '../providers/expense_controller.dart';
@@ -8,6 +9,7 @@ import '../widgets/adaptive_bottom_nav.dart';
 import '../widgets/bulk_upload_sheet.dart';
 import '../widgets/expense_tile.dart';
 import '../widgets/filter_bar.dart';
+import '../widgets/month_pickers.dart';
 import '../widgets/share_expense_sheet.dart';
 import '../widgets/summary_card.dart';
 import 'add_expense_screen.dart';
@@ -15,6 +17,7 @@ import 'auto_expenses_screen.dart';
 import 'borrowed_screen.dart';
 import 'completed_screen.dart';
 import 'expense_detail_screen.dart';
+import 'groups_screen.dart';
 import 'lent_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -40,6 +43,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final ExpenseController _controller = ExpenseController();
   int _navIndex = 0;
+  int _pendingGroupRequests = 0;
 
   static const _titles = [
     'Expenses',
@@ -53,7 +57,17 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _controller.loadExpenses();
+    _loadGroupBadge();
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybeAskBiometric());
+  }
+
+  Future<void> _loadGroupBadge() async {
+    try {
+      final res = await ApiClient.instance.fetchGroups();
+      if (mounted) {
+        setState(() => _pendingGroupRequests = res.pendingRequests.length);
+      }
+    } catch (_) {}
   }
 
   @override
@@ -147,6 +161,24 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               },
             ),
+          _appBarAction(
+            icon: _pendingGroupRequests > 0
+                ? Icons.notifications_active_rounded
+                : Icons.groups_rounded,
+            label: _pendingGroupRequests > 0
+                ? 'Groups ($_pendingGroupRequests)'
+                : 'Groups',
+            color: _pendingGroupRequests > 0
+                ? Colors.amberAccent
+                : AppTheme.accent,
+            onTap: () async {
+              FocusManager.instance.primaryFocus?.unfocus();
+              await Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const GroupsScreen()),
+              );
+              _loadGroupBadge();
+            },
+          ),
           if (widget.biometricAvailable)
             _appBarAction(
               icon: widget.biometricEnabled
@@ -303,12 +335,34 @@ class _HomeScreenState extends State<HomeScreen> {
                 datePreset: _controller.datePreset,
                 customFrom: _controller.customFrom,
                 customTo: _controller.customTo,
+                selectedMonth: _controller.selectedMonth,
                 selectedCategory: _controller.selectedCategory,
                 extraCategories: _controller.summary.byCategory
                     .map((e) => e.category)
                     .toList(),
                 onPresetSelected: (p) => _controller.setDatePreset(p),
                 onPickDateRange: _pickDateRange,
+                onPickCustomMonth: () async {
+                  FocusManager.instance.primaryFocus?.unfocus();
+                  final m = await showSingleMonthPicker(
+                    context,
+                    initial: _controller.selectedMonth,
+                  );
+                  if (m != null) {
+                    await _controller.setCustomMonth(m);
+                  }
+                },
+                onPickMonthRange: () async {
+                  FocusManager.instance.primaryFocus?.unfocus();
+                  final range = await showMonthRangePicker(
+                    context,
+                    initialFrom: _controller.customFrom,
+                    initialTo: _controller.customTo,
+                  );
+                  if (range != null) {
+                    await _controller.setMonthRange(range.from, range.to);
+                  }
+                },
                 onCategorySelected: _controller.setCategoryFilter,
               ),
               const SizedBox(height: 18),

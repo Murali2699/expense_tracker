@@ -10,20 +10,26 @@ class FilterBar extends StatelessWidget {
     required this.datePreset,
     required this.customFrom,
     required this.customTo,
+    this.selectedMonth,
     required this.selectedCategory,
     required this.extraCategories,
     required this.onPresetSelected,
     required this.onPickDateRange,
+    this.onPickCustomMonth,
+    this.onPickMonthRange,
     required this.onCategorySelected,
   });
 
   final DateFilterPreset datePreset;
   final DateTime? customFrom;
   final DateTime? customTo;
+  final DateTime? selectedMonth;
   final String? selectedCategory;
   final List<String> extraCategories;
   final ValueChanged<DateFilterPreset> onPresetSelected;
   final VoidCallback onPickDateRange;
+  final VoidCallback? onPickCustomMonth;
+  final VoidCallback? onPickMonthRange;
   final ValueChanged<String?> onCategorySelected;
 
   @override
@@ -45,16 +51,31 @@ class FilterBar extends StatelessWidget {
 
     final effectivePreset = (datePreset == DateFilterPreset.thisMonth ||
             datePreset == DateFilterPreset.selectedMonth)
-        ? DateFilterPreset.all
+        ? DateFilterPreset.customMonth
         : datePreset;
 
-    String customLabel = 'Custom';
+    String customLabel = 'Custom Date';
     if (effectivePreset == DateFilterPreset.customRange &&
         customFrom != null &&
         customTo != null) {
       final f = DateFormat('dd MMM').format(customFrom!);
       final t = DateFormat('dd MMM').format(customTo!);
       customLabel = f == t ? f : '$f – $t';
+    }
+
+    String monthLabel = 'Custom Month';
+    if (effectivePreset == DateFilterPreset.customMonth &&
+        selectedMonth != null) {
+      monthLabel = DateFormat('MMM yyyy').format(selectedMonth!);
+    }
+
+    String monthRangeLabel = 'Month to Month';
+    if (effectivePreset == DateFilterPreset.monthRange &&
+        customFrom != null &&
+        customTo != null) {
+      final f = DateFormat('MMM yy').format(customFrom!);
+      final t = DateFormat('MMM yy').format(customTo!);
+      monthRangeLabel = '$f – $t';
     }
 
     return Row(
@@ -87,12 +108,28 @@ class FilterBar extends StatelessWidget {
                 value: DateFilterPreset.customRange,
                 child: Text(customLabel, overflow: TextOverflow.ellipsis),
               ),
+              if (onPickCustomMonth != null)
+                DropdownMenuItem(
+                  value: DateFilterPreset.customMonth,
+                  child: Text(monthLabel, overflow: TextOverflow.ellipsis),
+                ),
+              if (onPickMonthRange != null)
+                DropdownMenuItem(
+                  value: DateFilterPreset.monthRange,
+                  child: Text(monthRangeLabel, overflow: TextOverflow.ellipsis),
+                ),
             ],
             onChanged: (val) {
               FocusManager.instance.primaryFocus?.unfocus();
               if (val == null) return;
               if (val == DateFilterPreset.customRange) {
                 onPickDateRange();
+              } else if (val == DateFilterPreset.customMonth &&
+                  onPickCustomMonth != null) {
+                onPickCustomMonth!();
+              } else if (val == DateFilterPreset.monthRange &&
+                  onPickMonthRange != null) {
+                onPickMonthRange!();
               } else {
                 onPresetSelected(val);
               }

@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import '../core/api_client.dart';
@@ -17,6 +20,10 @@ class LentScreen extends StatefulWidget {
 class _LentScreenState extends State<LentScreen> {
   double _totalPending = 0;
   List<LentGroup> _groups = [];
+  String _upiId = '';
+  String _myPhone = '';
+  bool _hasQr = false;
+  bool _uploadingQr = false;
   bool _loading = true;
   String? _error;
 
@@ -32,11 +39,19 @@ class _LentScreenState extends State<LentScreen> {
       _error = null;
     });
     try {
-      final res = await ApiClient.instance.fetchLent(status: 'PENDING');
+      final results = await Future.wait([
+        ApiClient.instance.fetchLent(status: 'PENDING'),
+        ApiClient.instance.fetchUpiInfo(),
+      ]);
+      final res = results[0] as ({double totalAmount, List<LentGroup> groups});
+      final upiInfo = results[1] as ({String upiId, bool hasQr, String phoneNumber});
       if (mounted) {
         setState(() {
           _totalPending = res.totalAmount;
           _groups = res.groups;
+          _upiId = upiInfo.upiId;
+          _hasQr = upiInfo.hasQr;
+          _myPhone = upiInfo.phoneNumber;
         });
       }
     } catch (e) {
@@ -88,6 +103,102 @@ class _LentScreenState extends State<LentScreen> {
       if (sendNow == true && mounted) {
         await WhatsAppHelper.sendReminder(context, phoneNumber: addedPhone);
       }
+    }
+  }
+
+  Future<void> _editUpiDialog() async {
+    final upiCtrl = TextEditingController(text: _upiId);
+    final phoneCtrl = TextEditingController(text: _myPhone);
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.card,
+        title: const Text('My UPI & Contact'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: upiCtrl,
+              decoration: const InputDecoration(
+                labelText: 'UPI ID',
+                hintText: 'e.g. yourname@ybl',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: phoneCtrl,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(
+                labelText: 'Phone Number (for Group lookup)',
+                hintText: 'e.g. 9876543210',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTheme.accent,
+              foregroundColor: const Color(0xFF032318),
+            ),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (saved == true && mounted) {
+      try {
+        final info = await ApiClient.instance.updateUpiInfo(
+          upiId: upiCtrl.text,
+          phoneNumber: phoneCtrl.text,
+        );
+        if (mounted) {
+          setState(() {
+            _upiId = info.upiId;
+            _myPhone = info.phoneNumber;
+            _hasQr = info.hasQr;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('UPI & contact saved!')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(e.toString())),
+          );
+        }
+      }
+    }
+    upiCtrl.dispose();
+    phoneCtrl.dispose();
+  }
+
+  Future<void> _uploadQr() async {
+    final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
+    if (picked == null || !mounted) return;
+    setState(() => _uploadingQr = true);
+    try {
+      await ApiClient.instance.uploadQrImage(File(picked.path));
+      if (mounted) {
+        setState(() => _hasQr = true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('QR image uploaded & saved!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingQr = false);
     }
   }
 
@@ -161,6 +272,80 @@ class _LentScreenState extends State<LentScreen> {
                       fontSize: 32,
                       fontWeight: FontWeight.w800,
                     ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppTheme.card,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: AppTheme.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.qr_code_2_rounded, color: AppTheme.accent, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _upiId.isNotEmpty ? 'UPI: $_upiId' : 'UPI ID not set',
+                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: _hasQr
+                              ? AppTheme.accent.withValues(alpha: 0.16)
+                              : AppTheme.surface,
+                          borderRadius: BorderRadius.circular(99),
+                        ),
+                        child: Text(
+                          _hasQr ? 'QR Ready' : 'No QR',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: _hasQr ? AppTheme.accent : AppTheme.textMuted,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _editUpiDialog,
+                          icon: const Icon(Icons.edit_rounded, size: 16),
+                          label: Text(_upiId.isNotEmpty ? 'Edit UPI' : 'Set UPI ID'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: _uploadingQr ? null : _uploadQr,
+                          icon: _uploadingQr
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.upload_rounded, size: 16),
+                          label: Text(_hasQr ? 'Change QR' : 'Upload QR'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppTheme.accent,
+                            foregroundColor: const Color(0xFF032318),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

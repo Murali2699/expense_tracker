@@ -92,6 +92,8 @@ enum DateFilterPreset {
   thisMonth,
   selectedMonth,
   customRange,
+  customMonth,
+  monthRange,
   all,
 }
 
