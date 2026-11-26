@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/api_client.dart';
 import '../models/group.dart';
 import '../theme/app_theme.dart';
+import '../widgets/calculate_expense_sheet.dart';
 import 'group_detail_screen.dart';
 
 class GroupsScreen extends StatefulWidget {
@@ -239,6 +240,23 @@ class _GroupsScreenState extends State<GroupsScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('Groups'),
+        actions: [
+          IconButton(
+            tooltip: 'Calculate Group Expense',
+            icon: const Icon(Icons.calculate_rounded, color: AppTheme.accent),
+            onPressed: () async {
+              await showModalBottomSheet<void>(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: AppTheme.card,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                ),
+                builder: (_) => const CalculateExpenseSheet(initialGroupMode: true),
+              );
+            },
+          ),
+        ],
         bottom: TabBar(
           controller: _tabCtrl,
           indicatorColor: AppTheme.accent,
